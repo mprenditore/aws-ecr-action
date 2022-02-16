@@ -47,12 +47,12 @@ function login() {
   if [ "${INPUT_REGISTRY_IDS}" == "" ]; then
     INPUT_REGISTRY_IDS=$INPUT_ACCOUNT_ID
   fi
-  
+
   for i in ${INPUT_REGISTRY_IDS//,/ }
   do
     aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $i.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
   done
-  
+
   echo "== FINISHED LOGIN"
 }
 
@@ -77,10 +77,13 @@ function create_ecr_repo() {
     set +e
     output=$(aws ecr describe-repositories --region $AWS_DEFAULT_REGION --repository-names $INPUT_REPO 2>&1)
     exit_code=$?
+    if [ $INPUT_KMS_ID != "" ]; then
+      repo_enc="--encryption-configuration encryptionType=KMS,kmsKey=arn:aws:kms:${INPUT_REGION}:${INPUT_ACCOUNT_ID}:key/${INPUT_KMS_ID}"
+    fi
     if [ $exit_code -ne 0 ]; then
       if echo ${output} | grep -q RepositoryNotFoundException; then
         echo "== REPO DOESN'T EXIST, CREATING.."
-        aws ecr create-repository --region $AWS_DEFAULT_REGION --repository-name $INPUT_REPO
+        aws ecr create-repository --region $AWS_DEFAULT_REGION --repository-name $INPUT_REPO ${repo_enc}
         echo "== FINISHED CREATE REPO"
       else
         >&2 echo ${output}
